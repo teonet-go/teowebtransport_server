@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/kirill-scherba/command/v2"
 	server "github.com/teonet-go/teowebtransport_server"
 )
 
@@ -22,7 +26,7 @@ func main() {
 	go serve(listenAddrHTTP)
 
 	// Start http/3 server
-	serve3(listenAddrHTTP3)
+	serve3(listenAddrHTTP3, commands())
 }
 
 // serve define HTTP handlers and start http server to serve static files.
@@ -38,7 +42,7 @@ func serve(addr string) {
 }
 
 // serve3 define HTTP/3 handlers and start http/3 server to provide webtransport.
-func serve3(addr string) {
+func serve3(addr string, commands *command.Commands) {
 	// Create teonet webtransport server
 	server := server.New(&server.Config{
 		ListenAddr: addr,
@@ -53,7 +57,7 @@ func serve3(addr string) {
 		},
 		KeepAlivePeriod: 30 * time.Second,
 		MaxIdleTimeout:  30 * time.Second,
-	})
+	}, commands)
 
 	// Run teonet webtransport server
 	log.Println("http/3 server is listening on", addr)
@@ -62,4 +66,28 @@ func serve3(addr string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+// commans creates commands for http/3 server and returns them.
+func commands() (c *command.Commands) {
+	c = command.New()
+
+	c.Add("hello", "Test command",
+		command.WebTransport, "{name}",
+		"", "", "",
+		func(cmd *command.CommandData, processIn command.ProcessIn, data any) (
+			out io.Reader, err error) {
+
+			// Get input vars from data
+			vars, err := c.Vars(data)
+			if err != nil {
+				return
+			}
+
+			out = strings.NewReader(fmt.Sprintf("Hello %s!", vars["name"]))
+			return
+		},
+	)
+
+	return
 }

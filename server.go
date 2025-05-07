@@ -10,6 +10,8 @@ package teowebtransport_server
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -25,7 +27,7 @@ type Webtransport struct {
 	server *webtransport.Server
 
 	// Available teonet commands
-	command.Commands
+	*command.Commands
 
 	// Connected peers
 	// peers
@@ -62,9 +64,9 @@ type Config struct {
 }
 
 // Create new teonet webtransport server.
-func New(conf *Config) (t *Webtransport) {
+func New(conf *Config, commands *command.Commands) (t *Webtransport) {
 
-	t = &Webtransport{}
+	t = &Webtransport{Commands: commands}
 
 	// Create a WebTransport server
 	t.server = &webtransport.Server{
@@ -196,18 +198,6 @@ func (t *Webtransport) handleStreams(session *webtransport.Session) {
 				reader := message.NewMessageReader(s)
 				defer s.Close()
 				for {
-					// Process without messages
-					// buf := make([]byte, 1024)
-					// n, err := s.Read(buf)
-					// if err != nil {
-					// 	log.Printf("Error reading from bidi stream %v: %v\n", s.StreamID(), err)
-					// 	break
-					// }
-					// fmt.Printf("Received from bidi stream %v: %s\n", s.StreamID(), buf[:n])
-					// sendMsg := bytes.ToUpper(buf[:n])
-					// fmt.Printf("Sending to bidi stream %v: %s\n", s.StreamID(), sendMsg)
-					// s.Write(sendMsg)
-
 					// Read and unmarshal message
 					msg, err := reader.Read()
 					if err != nil {
@@ -219,23 +209,57 @@ func (t *Webtransport) handleStreams(session *webtransport.Session) {
 						"received from bidi stream %v, cmd: %s, data len: %d\n",
 						s.StreamID(), msg.Command, len(msg.Data))
 
-					// Create response message
-					sendMsg := bytes.ToUpper(msg.GetData())
-					log.Printf("sending to bidi stream %v: %s\n",
-						s.StreamID(), sendMsg)
-
-					// Marshal message
-					message := &message.Message{Data: sendMsg}
-					data, err := message.MarshalBinary()
-					if err != nil {
-						log.Printf("error marshaling message: %v\n", err)
-						continue
-					}
-
-					// Write message
+					// Process message and send answer
+					outMsg, _ := t.processMessage(msg)
+					data, _ := outMsg.MarshalBinary()
 					s.Write(data)
 				}
 			}(s)
 		}
 	}()
+}
+
+func (t *Webtransport) processMessage(in *message.Message) (
+	out *message.Message, err error) {
+
+	// Make default output message containing input message fields
+	out = &message.Message{
+		ID:      in.ID,
+		Address: in.Address,
+		Command: in.Command,
+	}
+
+	// Print message command to console
+	log.Println("received command:", string(in.Command))
+
+	// Parse message
+	_, name, vars, _, _ := t.Commands.ParseCommand([]byte(in.Command))
+
+	// Execute command
+	log.Println("executing command:", name, vars)
+	reader, err := t.Commands.Exec(name, command.WebRTC,
+		&WebtransportRequest{Vars: vars, Data: in.Data},
+	)
+	if err != nil {
+		err = fmt.Errorf("failed to execute: %w", err)
+		out.Data = []byte(err.Error())
+		log.Println(err)
+		out.Err = 1
+		return
+	}
+
+	// Get data from reader
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		err = fmt.Errorf("failed to read answer data: %w", err)
+		out.Data = []byte(err.Error())
+		log.Println(err)
+		out.Err = 1
+		return
+	}
+
+	// Set data to output message
+	out.Data = data
+
+	return
 }

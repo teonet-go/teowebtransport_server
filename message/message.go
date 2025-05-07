@@ -34,6 +34,7 @@ type Message struct {
 	Address string
 	Command string
 	Data    []byte
+	Err     byte
 	length  uint32
 }
 
@@ -43,20 +44,26 @@ func (m *Message) GetAddress() string { return m.Address }
 func (m *Message) GetCommand() string { return m.Command }
 func (m *Message) GetData() []byte    { return m.Data }
 
+// serviceFieldsLength consists of the id field length (4 bytes), 
+// the length of the date length field (4 bytes),
+// and the error byte length (1 byte)
+const serviceFieldsLength = 4 + 4 + 1
+
 // MarshalBinary encodes a message as a byte array.
 func (m *Message) MarshalBinary() ([]byte, error) {
 	var buf bytes.Buffer
 
 	// Message binary format
-	//----------------------------------------------------
-	// Length  | ID      | Data length | Command | Data
-	//----------------------------------------------------
-	// 4 bytes | 4 bytes | 4 bytes     | n bytes | n bytes
-	//----------------------------------------------------
+	//--------------------------------------------------------------
+	// Length  | ID      | Data length | Command | Data    | Error
+	//--------------------------------------------------------------
+	// 4 bytes | 4 bytes | 4 bytes     | n bytes | n bytes | 1 byte
+	//--------------------------------------------------------------
 
 	// Message length consists of the id length, the command length,
 	// the data length, and the size of the variable containing the data length
-	length := uint32(len(m.Command) + len(m.Data) + 4 + 4)
+	// and error byte
+	length := uint32(len(m.Command) + len(m.Data) + serviceFieldsLength)
 	if err := binary.Write(&buf, binary.BigEndian, length); err != nil {
 		return nil, err
 	}
@@ -80,6 +87,11 @@ func (m *Message) MarshalBinary() ([]byte, error) {
 	// Message data
 	if dataLength > 0 {
 		buf.Write(m.Data)
+	}
+
+	// Message error
+	if err := binary.Write(&buf, binary.BigEndian, m.Err); err != nil {
+		return nil, err
 	}
 
 	return buf.Bytes(), nil
@@ -112,21 +124,27 @@ func (m *Message) UnmarshalBinary(data []byte) (err error) {
 	}
 
 	// Get command of message
-	command := make([]byte, m.length-4-4-dataLength)
+	command := make([]byte, m.length-dataLength-serviceFieldsLength)
 	_, err = io.ReadFull(reader, command)
 	if err != nil {
 		return
 	}
 	m.Command = string(command)
 
-	// Return if no data
-	if dataLength == 0 {
-		return
+	// Get data of message
+	if dataLength > 0 {
+		m.Data = make([]byte, dataLength)
+		_, err = io.ReadFull(reader, m.Data)
+		if err != nil {
+			return
+		}
 	}
 
-	// Get data of message
-	m.Data = make([]byte, dataLength)
-	_, err = io.ReadFull(reader, m.Data)
+	// Get error of message
+	err = binary.Read(reader, binary.BigEndian, &m.Err)
+	if err != nil {
+		return
+	}
 
 	return
 }

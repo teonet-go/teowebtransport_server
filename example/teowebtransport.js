@@ -1,5 +1,3 @@
-<html>
-<script>
   // Delay function
   Promise.delay = time_ms => new Promise(resolve => setTimeout(resolve, time_ms));
 
@@ -190,13 +188,14 @@
     })
   };
 
-  async function connect() {
+  async function connect(onconnect, ondisconnect, onmessage) {
 
     // Text encoder and decoder
     let encoder = new TextEncoder();
     let decoder = new TextDecoder();
 
     // Connect to WebTransport server
+    console.log('Connecting to teowebtransport server...');
     let transport = new WebTransport("https://asuzs.teonet.dev:4433/wt");
     await transport.ready;
 
@@ -213,16 +212,16 @@
     let writer = stream.writable.getWriter();
 
     // Create client-initiated uni stream & writer
-    let uniStream = await transport.createUnidirectionalStream();
-    let uniWriter = uniStream.getWriter();
+    // let uniStream = await transport.createUnidirectionalStream();
+    // let uniWriter = uniStream.getWriter();
 
     // Create datagram writer
-    let datagramWriter = transport.datagrams.writable.getWriter();
+    // let datagramWriter = transport.datagrams.writable.getWriter();
 
     // Display incoming datagrams
-    streamReader(transport.datagrams.readable, 'Datagram receive error', data => {
-      console.log('Received datagram:', decoder.decode(data));
-    });
+    // streamReader(transport.datagrams.readable, 'Datagram receive error', data => {
+    //   console.log('Received datagram:', decoder.decode(data));
+    // });
 
     // Display incoming data on bidi stream (messages mode)
     messageReader(stream.readable, 'Bidi stream receive error', msg => {
@@ -245,27 +244,28 @@
     });
 
     // Display incoming uni stream and data on those stream (when stream created by server)
-    streamReader(transport.incomingUnidirectionalStreams, 'Incoming uni stream error', stream => {
-      console.log('Received an incoming uni stream');
-      streamReader(stream, 'Incoming uni stream receive error', data => {
-        console.log('Received on incoming uni stream:', decoder.decode(data));
-      })
-    });
+    // streamReader(transport.incomingUnidirectionalStreams, 'Incoming uni stream error', stream => {
+    //   console.log('Received an incoming uni stream');
+    //   streamReader(stream, 'Incoming uni stream receive error', data => {
+    //     console.log('Received on incoming uni stream:', decoder.decode(data));
+    //   })
+    // });
 
     // Send some data on the streams we've created, wait, then send some more
-    await datagramWriter.write(encoder.encode("Datagram"))
-    await uniWriter.write(encoder.encode("Uni stream"))
-    console.log("Send message to bidi stream")
-    await writer.write(encodeMessage(0, "", "!!! Bidi stream AAA"))
+    // await datagramWriter.write(encoder.encode("Datagram"))
+    // await uniWriter.write(encoder.encode("Uni stream"))
+    // console.log("Send message to bidi stream")
+    // await writer.write(encodeMessage(0, "", "!!! Bidi stream AAA"))
 
-    await Promise.delay(1000);
+    // await Promise.delay(1000);
 
-    await datagramWriter.write(encoder.encode("Datagram again"))
-    await uniWriter.write(encoder.encode("Uni stream again"))
-    await writer.write(encodeMessage(0, "", "Bidi stream again"))
+    // await datagramWriter.write(encoder.encode("Datagram again"))
+    // await uniWriter.write(encoder.encode("Uni stream again"))
+    // await writer.write(encodeMessage(0, "", "Bidi stream again"))
 
-    await Promise.delay(1000);
+    // await Promise.delay(1000);
 
+    // Send some test commands
     for (let i = 0; i < 10; i++) {
       const msg = "привет message " + i;
       const name = Array(10)
@@ -278,15 +278,11 @@
       await writer.write(encodeMessage(i, "hello/" + upperCaseName, msg));
     }
 
-    await Promise.delay(2000);
-    await writer.close();
+    // await Promise.delay(2000);
+    // await writer.close();
 
-    await Promise.delay(2000);
-    await transport.close();
+    // await Promise.delay(2000);
+    // await transport.close();
   }
 
   start();
-
-</script>
-
-</html>
