@@ -4,6 +4,14 @@ Promise.delay = time_ms => new Promise(resolve => setTimeout(resolve, time_ms));
 
 class TeoWebtransport {
 
+    /**
+     * Constructor for TeoWebtransport.
+     *
+     * Initialize the object:
+     * - Set id to 0.
+     * - Set writer to null.
+     * - Create new TextEncoder and TextDecoder.
+     */
     constructor() {
         this.id = 0;
         this.writer = null;
@@ -231,6 +239,25 @@ class TeoWebtransport {
         await this.writer.write(this.#encodeMessage(this.id++, cmd, data));
     };
 
+    /**
+     * Tries to connect to the WebTransport server. If the connection fails, it
+     * will retry every 3 seconds.
+     *
+     * When connected, it will call the onconnect callback.
+     *
+     * When disconnected, it will call the ondisconnect callback.
+     *
+     * When a message is received, it will call the onmessage callback.
+     *
+     * @param {string} url - The URL of the WebTransport server
+     * @param {function} onconnect - The callback to call when the connection is
+     *   established
+     * @param {function} ondisconnect - The callback to call when the connection
+     *   is closed
+     * @param {function} onmessage - The callback to call when a message is
+     *   received
+     * @return {Promise<void>}
+     */
     async #run(url, onconnect, ondisconnect, onmessage, autoreconnect) {
 
         // Connect to WebTransport server
@@ -277,7 +304,6 @@ class TeoWebtransport {
             });
         });
     }
-
 }
 
 // export default TeoWebtransport
