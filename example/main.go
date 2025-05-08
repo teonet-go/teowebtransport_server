@@ -52,6 +52,7 @@ func serve3(addr string, commands *command.Commands) {
 			"googlechrome.github.io",
 			"127.0.0.1:8099",
 			"localhost:8099",
+			"localhost:8082",
 			"new-tab-page",
 			"",
 		},
