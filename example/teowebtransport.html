@@ -1,29 +1,56 @@
 <script src="./teowebtransport.js"></script>
 <script>
     const teowebtransport = new TeoWebtransport();
-    teowebtransport.connect(
-        "https://asuzs.teonet.dev:4433/wt",
-        () => {
-            console.log("connected");
-            teowebtransport.sendCmd("hello/me");
 
-            // Send some test commands
-            for (let i = 0; i < 10; i++) {
-                const msg = "привет message " + i;
-                const name = Array(10)
-                    .fill('')
-                    .map((v, i, a) => String.fromCharCode(1040 + Math.floor(Math.random() * 33)))
-                    .join('')
-                    .toLowerCase();
-                const upperCaseName = name[0].toUpperCase() + name.slice(1);
-                teowebtransport.sendCmd("hello/" + upperCaseName, msg);
-            }
-        },
-        () => {
-            console.log("disconnected");
-        },
-        (msg) => {
-            const decoder = new TextDecoder();
-        },
-    );
+    const doConnect = () => {
+
+        teowebtransport.connect(
+
+            // Teonet webtransport server url
+            "https://asuzs.teonet.dev:4433/wt",
+
+            // Onconnect callback
+            () => {
+                // Print connection message and Send hello command
+                console.log("connected");
+                teowebtransport.sendCmd("hello/Me");
+
+                // Send some test commands
+                for (let i = 0; i < 10; i++) {
+                    const msg = "привет message " + i;
+                    const name = Array(10)
+                        .fill('')
+                        .map((v, i, a) => String.fromCharCode(1040 + Math.floor(Math.random() * 33)))
+                        .join('')
+                        .toLowerCase();
+                    const upperCaseName = name[0].toUpperCase() + name.slice(1);
+                    teowebtransport.sendCmd("hello/" + upperCaseName, msg);
+                }
+
+                // Close connection after 5 seconds
+                setTimeout(() => teowebtransport.close(), 5000);
+            },
+
+            // Ondisconnect callback
+            (normally) => {
+                console.log("disconnected", normally);
+
+                // If disconnected normally (by close call) than reconnect
+                // after 5 seconds
+                if (normally) {
+                    setTimeout(doConnect, 5000);
+                }
+            },
+
+            // Onmessage callback
+            (msg) => {
+                console.log("got message:", msg.data);
+            },
+
+        );
+    }
+
+    doConnect();
+
+    // console.log("teowebtransport.connect done");
 </script>

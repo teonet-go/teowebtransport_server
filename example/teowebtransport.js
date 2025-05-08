@@ -15,6 +15,7 @@ class TeoWebtransport {
     constructor() {
         this.id = 0;
         this.writer = null;
+        this.transport = null;
 
         // Text encoder and decoder
         this.encoder = new TextEncoder();
@@ -151,11 +152,11 @@ class TeoWebtransport {
                 buffer = newBuffer;
 
                 // Get messages from buffer
-                next:
+                getFromBuffer:
                 while (true) {
                     const data = this.#getMessageFromBuffer(buffer);
                     if (data === null) {
-                        break next;
+                        break getFromBuffer;
                     }
                     buffer = data.newBuffer;
                     dataReceivedFunction(data.msg);
@@ -215,6 +216,76 @@ class TeoWebtransport {
      *   is closed
      * @param {function} onmessage - The callback to call when a message is
      *   received
+     * @return {Promise<void>}
+     */
+    async #run(url, onconnect, ondisconnect, onmessage, autoreconnect) {
+
+        // Connect to WebTransport server
+        console.log('connecting to teowebtransport server...');
+        const transport = new WebTransport(url);
+        this.transport = transport;
+        await transport.ready;
+
+        // When the connection is closed
+        transport.closed
+            .then(() => {
+                console.log('connection closed normally')
+                if (ondisconnect) ondisconnect(true);
+            })
+            .catch(err => {
+                console.log('connection closed abruptly', err);
+                if (ondisconnect) ondisconnect();
+                if (autoreconnect) {
+                    this.connect(url, onconnect, ondisconnect, onmessage, autoreconnect);
+                }
+            });
+
+        // Create client-initiated bidi stream & writer
+        let stream = await transport.createBidirectionalStream();
+        let writer = stream.writable.getWriter();
+        this.writer = writer;
+
+        // Display incoming data on bidi stream (messages mode)
+        this.#messageReader(stream.readable, 'bidi stream receive error', msg => {
+            if (msg.err) {
+                console.log('received on bidi stream, error:', msg.data);
+                return;
+            }
+            console.log("wt.got  command:", msg.command + ",", "data len:", msg.data.length);
+
+            if (onmessage) onmessage(msg);
+        });
+
+        // Display incoming bidi stream and data on those stream (when stream created by server)
+        this.#streamReader(transport.incomingBidirectionalStreams, 'incoming bidi stream error', stream => {
+            // console.log('Received an incoming bidi stream');
+            let incomingBidiWriter = stream.writable.getWriter();
+            this.#streamReader(stream.readable, 'incoming bidi stream receive error', async data => {
+                let text = this.decoder.decode(data);
+                // console.log('Received on incoming bidi stream:', text);
+                await incomingBidiWriter.write(this.encoder.encode(text.toUpperCase()));
+                if (onconnect) onconnect();
+            });
+        });
+    }
+
+    /**
+     * Tries to connect to the WebTransport server. If the connection fails, it
+     * will retry every 3 seconds.
+     *
+     * When connected, it will call the onconnect callback.
+     *
+     * When disconnected, it will call the ondisconnect callback.
+     *
+     * When a message is received, it will call the onmessage callback.
+     *
+     * @param {string} url - The URL of the WebTransport server
+     * @param {function} onconnect - The callback to call when the connection is
+     *   established
+     * @param {function} ondisconnect - The callback to call when the connection
+     *   is closed
+     * @param {function} onmessage - The callback to call when a message is
+     *   received
      */
     connect(url, onconnect, ondisconnect, onmessage, autoreconnect = true) {
         this.#run(url, onconnect, ondisconnect, onmessage, autoreconnect).catch((err) => {
@@ -235,75 +306,14 @@ class TeoWebtransport {
      */
     async sendCmd(cmd, data = new Uint8Array(0)) {
         // Send the command and data to the WebTransport server
-        console.log("wt.send command:", cmd+",", "data len:", data?.length);
+        console.log("wt.send command:", cmd + ",", "data len:", data?.length);
         await this.writer.write(this.#encodeMessage(this.id++, cmd, data));
     };
 
-    /**
-     * Tries to connect to the WebTransport server. If the connection fails, it
-     * will retry every 3 seconds.
-     *
-     * When connected, it will call the onconnect callback.
-     *
-     * When disconnected, it will call the ondisconnect callback.
-     *
-     * When a message is received, it will call the onmessage callback.
-     *
-     * @param {string} url - The URL of the WebTransport server
-     * @param {function} onconnect - The callback to call when the connection is
-     *   established
-     * @param {function} ondisconnect - The callback to call when the connection
-     *   is closed
-     * @param {function} onmessage - The callback to call when a message is
-     *   received
-     * @return {Promise<void>}
-     */
-    async #run(url, onconnect, ondisconnect, onmessage, autoreconnect) {
-
-        // Connect to WebTransport server
-        console.log('connecting to teowebtransport server...');
-        let transport = new WebTransport(url);
-        await transport.ready;
-
-        // When the connection is closed
-        transport.closed
-            .then(() => console.log('connection closed normally'))
-            .catch(error => {
-                console.log('connection closed abruptly', error);
-                if (ondisconnect) ondisconnect();
-                if (autoreconnect) {
-                    this.connect(url, onconnect, ondisconnect, onmessage, autoreconnect);
-                }
-            });
-
-        // Create client-initiated bidi stream & writer
-        let stream = await transport.createBidirectionalStream();
-        let writer = stream.writable.getWriter();
-        this.writer = writer;
-
-        // Display incoming data on bidi stream (messages mode)
-        this.#messageReader(stream.readable, 'Bidi stream receive error', msg => {
-            if (msg.err) {
-                console.log('received on bidi stream, error:', msg.data);
-                return;
-            }
-            console.log("wt.got  command:", msg.command+",", "data len:", msg.data.length);
-
-            if (onmessage) onmessage(msg);
-        });
-
-        // Display incoming bidi stream and data on those stream (when stream created by server)
-        this.#streamReader(transport.incomingBidirectionalStreams, 'incoming bidi stream error', stream => {
-            // console.log('Received an incoming bidi stream');
-            let incomingBidiWriter = stream.writable.getWriter();
-            this.#streamReader(stream.readable, 'incoming bidi stream receive error', async data => {
-                let text = this.decoder.decode(data);
-                // console.log('Received on incoming bidi stream:', text);
-                await incomingBidiWriter.write(this.encoder.encode(text.toUpperCase()));
-                if (onconnect) onconnect();
-            });
-        });
-    }
+    async close() {
+        await this.writer.close();
+        this.transport.close();
+    };
 }
 
 // export default TeoWebtransport
