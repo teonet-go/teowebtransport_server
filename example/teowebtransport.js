@@ -304,10 +304,12 @@ class TeoWebtransport {
      * @param {Uint8Array} [data] - The data to send with the command
      * @return {Promise<void>}
      */
-    async sendCmd(cmd, data = new Uint8Array(0)) {
+    sendCmd(cmd, data = new Uint8Array(0)) {
         // Send the command and data to the WebTransport server
         console.log("wt.send command:", cmd + ",", "data len:", data?.length);
-        await this.writer.write(this.#encodeMessage(this.id++, cmd, data));
+        const id = this.id++;
+        this.writer.write(this.#encodeMessage(this.id++, cmd, data));
+        return id;
     };
 
     async close() {
@@ -316,4 +318,4 @@ class TeoWebtransport {
     };
 }
 
-// export default TeoWebtransport
+export default TeoWebtransport
