@@ -38,11 +38,11 @@ type Config struct {
 	// ListenAddr sets an address to bind server to, e.g. ":4433"
 	ListenAddr string
 
-	// TLSCert defines a path to a certificate (CRT file)
-	TLSCert string
+	// TLSCert defines a path or data to TLS certificate (CRT file)
+	TLSCert webtransport.CertFile
 
-	// TLSKey defines a path to the certificate's private key (KEY file)
-	TLSKey string
+	// TLSKey defines a path or data to TLS certificate's private key (KEY file)
+	TLSKey webtransport.CertFile
 
 	// AllowedOrigins represents list of allowed origins to connect from
 	AllowedOrigins []string
@@ -71,8 +71,8 @@ func New(conf *Config, commands *command.Commands) (t *Webtransport) {
 	// Create a WebTransport server
 	t.server = &webtransport.Server{
 		ListenAddr:     conf.ListenAddr,
-		TLSCert:        webtransport.CertFile{Path: conf.TLSCert},
-		TLSKey:         webtransport.CertFile{Path: conf.TLSKey},
+		TLSCert:        conf.TLSCert,
+		TLSKey:         conf.TLSKey,
 		AllowedOrigins: conf.AllowedOrigins,
 		QuicConfig: &webtransport.QuicConfig{
 			KeepAlivePeriod: conf.KeepAlivePeriod,
