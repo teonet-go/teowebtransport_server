@@ -59,8 +59,8 @@ func serve3(addr string, commands *command.Commands) {
 	// Create teonet webtransport server
 	server := server.New(&server.Config{
 		ListenAddr: addr,
-		TLSCert:    webtransport.CertFile{Path: "asuzs.teonet.dev.crt"},
-		TLSKey:     webtransport.CertFile{Path: "asuzs.teonet.dev.key"},
+		TLSCert:    webtransport.CertFile{Path: "/etc/letsencrypt/live/asuzs.teonet.dev/fullchain.pem"}, 
+		TLSKey:     webtransport.CertFile{Path: "/etc/letsencrypt/live/asuzs.teonet.dev/privkey.pem"},
 		// TLSCert: webtransport.CertFile{Path: "localhost.crt"},
 		// TLSKey:  webtransport.CertFile{Path: "localhost.key"},
 		// TLSCert: webtransport.CertFile{Data: cert},
@@ -71,7 +71,7 @@ func serve3(addr string, commands *command.Commands) {
 			"localhost:8099",
 			"localhost:8082",
 			"new-tab-page",
-			"",
+			"*",
 		},
 		KeepAlivePeriod: 30 * time.Second,
 		MaxIdleTimeout:  30 * time.Second,

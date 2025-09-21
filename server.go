@@ -17,8 +17,14 @@ import (
 	"time"
 
 	"github.com/kirill-scherba/command/v2"
+	"github.com/quic-go/quic-go"
 	"github.com/teonet-go/teowebtransport_server/message"
 	"github.com/teonet-go/webtransport-go"
+)
+
+const (
+	// Webtransport server version
+	Version = "0.0.1"
 )
 
 // Webtransport server struct
@@ -86,6 +92,10 @@ func New(conf *Config, commands *command.Commands) (t *Webtransport) {
 // Run server
 func (t *Webtransport) Run(ctx context.Context) error {
 
+	http.HandleFunc("/version", func(rw http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(rw, "version: %s\n", Version)
+	})
+
 	// Register HTTP/3 connection handler
 	http.HandleFunc("/wt", func(rw http.ResponseWriter, r *http.Request) {
 
@@ -112,7 +122,7 @@ func (t *Webtransport) Run(ctx context.Context) error {
 		s.Write(sendMsg)
 
 		// Process messages from server-initiated bidi stream
-		go func(s webtransport.Stream) {
+		go func(s *quic.Stream) {
 			defer s.Close()
 			for {
 				buf := make([]byte, 1024)
@@ -194,7 +204,7 @@ func (t *Webtransport) handleStreams(session *webtransport.Session) {
 			}
 			log.Println("accepting incoming bidi stream:", s.StreamID())
 
-			go func(s webtransport.Stream) {
+			go func(s *quic.Stream) {
 				reader := message.NewMessageReader(s)
 				defer s.Close()
 				for {
