@@ -25,8 +25,8 @@ func main() {
 	// Set log level with microseconds
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
-	const listenAddrHTTP = ":8099"
-	const listenAddrHTTP3 = ":4433"
+	const listenAddrHTTP = "localhost:8099"
+	const listenAddrHTTP3 = "[::]:4433"
 
 	// Start http server
 	go serve(listenAddrHTTP)
@@ -37,12 +37,14 @@ func main() {
 
 // serve define HTTP handlers and start http server to serve static files.
 func serve(addr string) {
+	// Create a new ServeMux to avoid conflicts with the default one.
+	mux := http.NewServeMux()
 	// Static part of frontend
 	frontendFS := http.FileServer(http.FS(os.DirFS("./")))
-	http.Handle("/", frontendFS)
+	mux.Handle("/", frontendFS)
 
 	log.Println("http server is listening on", addr)
-	if err := http.ListenAndServe(addr, nil); err != nil {
+	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -59,7 +61,7 @@ func serve3(addr string, commands *command.Commands) {
 	// Create teonet webtransport server
 	server := server.New(&server.Config{
 		ListenAddr: addr,
-		TLSCert:    webtransport.CertFile{Path: "/etc/letsencrypt/live/asuzs.teonet.dev/fullchain.pem"}, 
+		TLSCert:    webtransport.CertFile{Path: "/etc/letsencrypt/live/asuzs.teonet.dev/fullchain.pem"},
 		TLSKey:     webtransport.CertFile{Path: "/etc/letsencrypt/live/asuzs.teonet.dev/privkey.pem"},
 		// TLSCert: webtransport.CertFile{Path: "localhost.crt"},
 		// TLSKey:  webtransport.CertFile{Path: "localhost.key"},

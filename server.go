@@ -92,6 +92,8 @@ func New(conf *Config, commands *command.Commands) (t *Webtransport) {
 // Run server
 func (t *Webtransport) Run(ctx context.Context) error {
 
+	log.Println("starting webtransport server...")
+
 	http.HandleFunc("/version", func(rw http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(rw, "version: %s\n", Version)
 	})
@@ -103,7 +105,7 @@ func (t *Webtransport) Run(ctx context.Context) error {
 		session := r.Body.(*webtransport.Session)
 		session.AcceptSession()
 		// session.RejectSession(400)
-		log.Println("accepted incoming webtransport session")
+		log.Println("new connection", r.RemoteAddr)
 
 		// Handle incoming webtransport streams
 		t.handleStreams(session)
