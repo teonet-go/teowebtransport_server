@@ -281,7 +281,7 @@ func (w *Webtransport) processMessage(s *quic.Stream, in *message.Message) (
 		// log.Println("executing command:", name, vars)
 		reader, err = w.com.Exec(name, command.WebTransport, request)
 		if err != nil {
-			err = fmt.Errorf("failed to execute: %w", err)
+			err = fmt.Errorf("failed to execute command %s: %w", name, err)
 			out.Data = []byte(err.Error())
 			log.Println(err)
 			out.Err = 1
